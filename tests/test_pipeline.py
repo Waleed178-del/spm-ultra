@@ -35,3 +35,12 @@ def test_full_pipeline_dry_run(tmp_path):
     result.save(tmp_path)
     assert (tmp_path / "blueprint.md").exists()
     assert len(list((tmp_path / "agents").iterdir())) == 30
+
+
+def test_mesh_round_adds_30_calls(tmp_path):
+    llm = MockLLM()
+    result = asyncio.run(MasterOrchestrator(llm, mesh_rounds=1).run("idea"))
+    assert llm.usage.calls == 1 + 30 + 30 + 6 + 1 + 1 + 1
+    assert len(result.first_pass) == 30
+    result.save(tmp_path)
+    assert len(list((tmp_path / "agents" / "first_pass").iterdir())) == 30

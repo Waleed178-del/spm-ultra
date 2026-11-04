@@ -1,4 +1,4 @@
-"""SPM Ultra Master Orchestrator: intake, parallel dispatch, refinement, audit, blueprint."""
+"""SPM Ultra Master Orchestrator: intake, parallel dispatch, mesh round, refinement, audit, blueprint."""
 
 from __future__ import annotations
 
@@ -10,19 +10,24 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from . import prompts
-from .registry import DIRECTORATES, MANDATORY_CROSS_CHECKS, Directorate, agent_by_id
+from .registry import (DIRECTORATES, MANDATORY_CROSS_CHECKS, Directorate, agent_by_id,
+                       directorate_of, upstream)
 
 log = logging.getLogger("spm_ultra")
 
 DEFAULT_MODEL = "claude-opus-5-5"
+WEB_SEARCH_TOOL = {"type": "web_search_20260209", "name": "web_search", "max_uses": 3}
+MAX_PAUSE_CONTINUATIONS = 5
 
 
 # --------------------------------------------------------------------------- LLM backends
 
 
 class LLM(Protocol):
+    usage: "Usage"
+
     async def complete(self, *, system: str, user: str, effort: str, max_tokens: int,
-                       schema: dict | None = None, label: str = "") -> str: ...
+                       schema: dict | None = None, label: str = "", web: bool = False) -> str: ...
 
 
 @dataclass
@@ -34,6 +39,20 @@ class Usage:
 
 class RefusalError(RuntimeError):
     pass
+
+
+def _extract_text_with_sources(content: list[Any]) -> str:
+    """Join text blocks and append a deduplicated source list from web search citations."""
+    text = "".join(b.text for b in content if b.type == "text")
+    sources: dict[str, str] = {}
+    for b in content:
+        for c in (getattr(b, "citations", None) or []):
+            url = getattr(c, "url", None)
+            if url and url not in sources:
+                sources[url] = getattr(c, "title", None) or url
+    if sources:
+        text += "\n\n**Web Sources**\n" + "\n".join(f"- [{t}]({u})" for u, t in sources.items())
+    return text
 
 
 class ClaudeLLM:
@@ -50,50 +69,69 @@ class ClaudeLLM:
         self.usage = Usage()
 
     async def complete(self, *, system: str, user: str, effort: str, max_tokens: int,
-                       schema: dict | None = None, label: str = "") -> str:
+                       schema: dict | None = None, label: str = "", web: bool = False) -> str:
         output_config: dict[str, Any] = {"effort": effort}
         if schema is not None:
             output_config["format"] = {"type": "json_schema", "schema": schema}
+        messages: list[dict[str, Any]] = [{"role": "user", "content": user}]
         kwargs: dict[str, Any] = dict(
-            model=self.model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-            thinking={"type": "adaptive"},
-            output_config=output_config,
+            model=self.model, max_tokens=max_tokens, system=system,
+            thinking={"type": "adaptive"}, output_config=output_config,
         )
+        if web:
+            kwargs["tools"] = [WEB_SEARCH_TOOL]
         if self.use_fallbacks:
             kwargs["betas"] = ["server-side-fallback-2026-07-01"]
             kwargs["fallbacks"] = "default"
 
+        content: list[Any] = []
         async with self.sem:
             log.info("dispatch  %s", label)
-            async with self.client.beta.messages.stream(**kwargs) as stream:
-                msg = await stream.get_final_message()
-
-        self.usage.calls += 1
-        self.usage.input_tokens += msg.usage.input_tokens
-        self.usage.output_tokens += msg.usage.output_tokens
+            for _ in range(MAX_PAUSE_CONTINUATIONS + 1):
+                async with self.client.beta.messages.stream(messages=messages, **kwargs) as stream:
+                    msg = await stream.get_final_message()
+                self.usage.calls += 1
+                self.usage.input_tokens += msg.usage.input_tokens
+                self.usage.output_tokens += msg.usage.output_tokens
+                content.extend(msg.content)
+                if msg.stop_reason != "pause_turn":
+                    break
+                # Server tool loop paused: resend with the partial assistant turn to continue.
+                messages = messages + [{"role": "assistant", "content": msg.content}]
 
         if msg.stop_reason == "refusal":
             raise RefusalError(f"{label}: request declined ({msg.stop_details})")
         if msg.stop_reason == "max_tokens":
             log.warning("%s hit max_tokens; output truncated", label)
         log.info("complete  %s", label)
-        return "".join(b.text for b in msg.content if b.type == "text")
+        return _extract_text_with_sources(content)
+
+
+@dataclass
+class Call:
+    label: str
+    system: str
+    user: str
+    effort: str
+    web: bool
 
 
 class MockLLM:
-    """Offline backend for dry runs and tests. Returns deterministic placeholder output."""
+    """Offline backend for dry runs and tests. Records every call and returns placeholder output."""
 
-    def __init__(self) -> None:
+    def __init__(self, conflict_checks: int = 1) -> None:
         self.usage = Usage()
-        self.labels: list[str] = []
+        self.calls: list[Call] = []
+        self.conflict_checks = conflict_checks
+
+    @property
+    def labels(self) -> list[str]:
+        return [c.label for c in self.calls]
 
     async def complete(self, *, system: str, user: str, effort: str, max_tokens: int,
-                       schema: dict | None = None, label: str = "") -> str:
+                       schema: dict | None = None, label: str = "", web: bool = False) -> str:
         self.usage.calls += 1
-        self.labels.append(label)
+        self.calls.append(Call(label, system, user, effort, web))
         if label == "intake":
             return json.dumps({
                 "ready": True, "industry_vector": "mock", "primary_goal": "mock goal",
@@ -102,8 +140,9 @@ class MockLLM:
             })
         if label == "audit":
             return json.dumps({"conflicts": [
-                {"check": name, "agent_ids": list(a) + list(b), "in_conflict": i == 0,
-                 "severity": "high" if i == 0 else "low", "description": "mock"}
+                {"check": name, "agent_ids": list(a) + list(b),
+                 "in_conflict": i < self.conflict_checks,
+                 "severity": "high" if i < self.conflict_checks else "low", "description": "mock"}
                 for i, (name, a, b) in enumerate(MANDATORY_CROSS_CHECKS)
             ]})
         return f"[mock output for {label}]"
@@ -127,6 +166,7 @@ class Intake:
 class RunResult:
     intake: Intake
     agent_outputs: dict[int, str] = field(default_factory=dict)
+    first_pass: dict[int, str] = field(default_factory=dict)
     briefs: dict[int, str] = field(default_factory=dict)
     conflicts: list[dict] = field(default_factory=list)
     reconciliations: list[str] = field(default_factory=list)
@@ -138,6 +178,10 @@ class RunResult:
         (out_dir / "intake.json").write_text(json.dumps(self.intake.__dict__, indent=2))
         for aid, text in sorted(self.agent_outputs.items()):
             (out_dir / "agents" / f"agent_{aid:02d}.md").write_text(text)
+        if self.first_pass:
+            (out_dir / "agents" / "first_pass").mkdir(exist_ok=True)
+            for aid, text in sorted(self.first_pass.items()):
+                (out_dir / "agents" / "first_pass" / f"agent_{aid:02d}.md").write_text(text)
         for did, text in sorted(self.briefs.items()):
             (out_dir / "briefs" / f"directorate_{did}.md").write_text(text)
         (out_dir / "audit.json").write_text(json.dumps(self.conflicts, indent=2))
@@ -146,16 +190,19 @@ class RunResult:
 
 
 class MasterOrchestrator:
-    """Hierarchical cluster: Master -> 6 directorate leads -> 30 specialists."""
+    """Hierarchical cluster with an optional peer mesh: Master -> 6 leads -> 30 specialists."""
 
-    def __init__(self, llm: LLM, worker_effort: str = "medium",
-                 lead_effort: str = "high", master_effort: str = "high") -> None:
+    def __init__(self, llm: LLM, worker_effort: str = "medium", lead_effort: str = "high",
+                 master_effort: str = "high", mesh_rounds: int = 0,
+                 web_research: bool = False) -> None:
         self.llm = llm
         self.worker_effort = worker_effort
         self.lead_effort = lead_effort
         self.master_effort = master_effort
+        self.mesh_rounds = mesh_rounds
+        self.web_research = web_research
 
-    # 1. INTAKE ANALYSIS
+    # Phase 1: INTAKE ANALYSIS
     async def intake(self, idea: str, answers: str | None = None) -> Intake:
         user = f"<raw_idea>\n{idea}\n</raw_idea>"
         if answers:
@@ -165,30 +212,41 @@ class MasterOrchestrator:
                                       schema=prompts.INTAKE_SCHEMA, label="intake")
         return Intake(**json.loads(raw))
 
-    # 2. SYNCHRONOUS DISPATCH + internal directorate refinement loop
-    async def _run_directorate(self, d: Directorate, context: str,
-                               result: RunResult) -> None:
-        payload = f"<context_brief>\n{context}\n</context_brief>"
-        outputs = await asyncio.gather(*[
-            self.llm.complete(system=prompts.agent_system(a, d), user=payload,
-                              effort=self.worker_effort, max_tokens=16000,
-                              label=f"agent {a.id:02d} {a.name}")
-            for a in d.agents
-        ])
-        for a, out in zip(d.agents, outputs):
-            result.agent_outputs[a.id] = out
-
-        specialist_block = "\n\n".join(
-            f"<agent id=\"{a.id}\" name=\"{a.name}\">\n{out}\n</agent>"
-            for a, out in zip(d.agents, outputs)
+    # Phase 2: SYNCHRONOUS DISPATCH (one specialist)
+    async def run_agent(self, agent_id: int, context: str) -> str:
+        a, d = agent_by_id(agent_id), directorate_of(agent_id)
+        return await self.llm.complete(
+            system=prompts.agent_system(a, d, web=self.web_research),
+            user=f"<context_brief>\n{context}\n</context_brief>",
+            effort=self.worker_effort, max_tokens=16000, web=self.web_research,
+            label=f"agent {a.id:02d} {a.name}",
         )
-        result.briefs[d.id] = await self.llm.complete(
+
+    # Phase 3: MESH ROUND (each specialist reads its upstream peers across directorates)
+    async def _mesh_revise(self, agent_id: int, context: str, prev: dict[int, str]) -> str:
+        a, d = agent_by_id(agent_id), directorate_of(agent_id)
+        peers = {i: prev[i] for i in upstream(agent_id)}
+        return await self.llm.complete(
+            system=prompts.agent_system(a, d, web=False),
+            user=prompts.mesh_revision_user(context, prev[agent_id], peers),
+            effort=self.worker_effort, max_tokens=16000,
+            label=f"mesh {a.id:02d} {a.name}",
+        )
+
+    # Phase 4: DIRECTORATE REFINEMENT
+    async def _lead(self, d: Directorate, context: str, outputs: dict[int, str]) -> str:
+        specialist_block = "\n\n".join(
+            f"<agent id=\"{a.id}\" name=\"{a.name}\">\n{outputs[a.id]}\n</agent>"
+            for a in d.agents
+        )
+        return await self.llm.complete(
             system=prompts.directorate_lead_system(d),
-            user=f"{payload}\n\n<specialist_outputs>\n{specialist_block}\n</specialist_outputs>",
+            user=(f"<context_brief>\n{context}\n</context_brief>\n\n"
+                  f"<specialist_outputs>\n{specialist_block}\n</specialist_outputs>"),
             effort=self.lead_effort, max_tokens=16000, label=f"directorate {d.id} lead",
         )
 
-    # 3. CONTRADICTION AUDIT LOOP
+    # Phase 5: CONTRADICTION AUDIT LOOP
     async def _audit(self, context: str, result: RunResult) -> None:
         checks = "\n".join(
             f"- {name}: agents {list(a)} vs agents {list(b)}"
@@ -205,7 +263,6 @@ class MasterOrchestrator:
             schema=prompts.AUDIT_SCHEMA, label="audit",
         )
         result.conflicts = json.loads(raw)["conflicts"]
-
         live = [c for c in result.conflicts if c["in_conflict"]]
         result.reconciliations = list(await asyncio.gather(*[
             self._reconcile(c, context, result) for c in live
@@ -225,7 +282,7 @@ class MasterOrchestrator:
             label=f"reconcile: {conflict['check']}",
         )
 
-    # 4. UNIFIED OUTPUT GENERATION
+    # Phase 6: UNIFIED OUTPUT GENERATION
     async def _blueprint(self, context: str, result: RunResult) -> None:
         briefs = "\n\n".join(
             f"<brief directorate=\"{d.id}\">\n{result.briefs[d.id]}\n</brief>"
@@ -246,7 +303,17 @@ class MasterOrchestrator:
         if not intake.ready:
             return result
         context = intake.context_brief
-        await asyncio.gather(*[self._run_directorate(d, context, result) for d in DIRECTORATES])
+        ids = [a.id for d in DIRECTORATES for a in d.agents]
+
+        outputs = dict(zip(ids, await asyncio.gather(*[self.run_agent(i, context) for i in ids])))
+        for _ in range(self.mesh_rounds):
+            result.first_pass = result.first_pass or dict(outputs)
+            outputs = dict(zip(ids, await asyncio.gather(
+                *[self._mesh_revise(i, context, outputs) for i in ids])))
+        result.agent_outputs = outputs
+
+        briefs = await asyncio.gather(*[self._lead(d, context, outputs) for d in DIRECTORATES])
+        result.briefs = {d.id: b for d, b in zip(DIRECTORATES, briefs)}
         await self._audit(context, result)
         await self._blueprint(context, result)
         return result

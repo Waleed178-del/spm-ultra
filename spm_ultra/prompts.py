@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from .registry import DIRECTORATES, Agent, Directorate
+from .registry import (DIRECTORATES, REFERENCES, Agent, Directorate, agent_by_id,
+                       downstream, tag, upstream)
 
 SHARED_DISCIPLINE = """\
 Operating discipline:
@@ -10,7 +11,12 @@ Operating discipline:
 - Calibrate confidence. Mark each key conclusion High, Medium or Low confidence.
 - No flattery, no filler, no generic advice that would apply to any business.
 - If the brief lacks data you need, state the assumption you are making and continue. Do not stop to ask questions.
-- Flag explicitly any finding that another directorate must know about (prefix with CROSS-DEPENDENCY)."""
+- Flag explicitly any finding that another directorate must know about (prefix with CROSS-DEPENDENCY).
+- Reference other agents by tag in square brackets, e.g. [A12], so every claim is traceable to its source agent."""
+
+
+def _peer_list(ids: tuple[int, ...]) -> str:
+    return "\n".join(f"- [{tag(i)}] {agent_by_id(i).name}" for i in ids) or "- (none)"
 
 
 def intake_system() -> str:
@@ -38,22 +44,59 @@ INTAKE_SCHEMA = {
 }
 
 
-def agent_system(agent: Agent, directorate: Directorate) -> str:
+def agent_system(agent: Agent, directorate: Directorate, web: bool = False) -> str:
+    refs = "\n".join(f"- {r}" for r in REFERENCES[agent.id])
+    web_rule = ("You have a web_search tool. Use it for current market data, prices and regulation. "
+                "Cite every external figure with its source.") if web else (
+                "You have no live data access. Mark any market figure as ASSUMED and say what source "
+                "would confirm it.")
     return f"""\
-You are Agent {agent.id}: {agent.name}, a specialist consultant inside Directorate {directorate.id} ({directorate.name}) of the SPM Ultra strategic planning cluster.
+You are Agent {agent.id} [{tag(agent.id)}]: {agent.name}, a specialist consultant inside Directorate {directorate.id} ({directorate.name}) of the SPM Ultra strategic planning cluster.
 
 Your mandate: {agent.mandate}
+
+Ground your method in these canonical references:
+{refs}
+
+Mesh position. You consume output from (upstream):
+{_peer_list(upstream(agent.id))}
+You feed (downstream):
+{_peer_list(downstream(agent.id))}
+Name the exact figures or decisions you need from upstream peers and the ones downstream peers will rely on from you.
 
 Stay strictly inside your mandate. Other specialists cover the other dimensions.
 
 {SHARED_DISCIPLINE}
+- {web_rule}
 
 Output format (markdown, max ~600 words):
-### Agent {agent.id}: {agent.name}
+### {tag(agent.id)}: {agent.name}
 **Key Findings** (bulleted, quantified)
 **Critical Assumptions** (bulleted, GIVEN vs ASSUMED)
 **Recommendations** (numbered, actionable)
-**Cross-Dependencies** (what other directorates must reconcile with you)"""
+**Cross-Dependencies** (each line starts with a peer tag, e.g. [A12])
+**References** (frameworks applied and any external sources)"""
+
+
+def mesh_revision_user(context: str, own_output: str, peer_outputs: dict[int, str]) -> str:
+    peers = "\n\n".join(
+        f"<peer tag=\"{tag(i)}\" name=\"{agent_by_id(i).name}\">\n{out}\n</peer>"
+        for i, out in sorted(peer_outputs.items())
+    )
+    return f"""<context_brief>
+{context}
+</context_brief>
+
+<your_previous_output>
+{own_output}
+</your_previous_output>
+
+<upstream_peer_outputs>
+{peers}
+</upstream_peer_outputs>
+
+Mesh revision round. Read your upstream peers. Where their figures or decisions conflict with yours, either adopt theirs or defend yours with evidence. Return your full revised output in the same format, plus a final section:
+**Alignment Notes** (each line: [A##] what changed and why, or "no change" with reason)"""
 
 
 def directorate_lead_system(directorate: Directorate) -> str:
@@ -136,6 +179,7 @@ System Name: SPM Ultra Skill Master Orchestrator (V2-30)
 Role: Chief Strategic Officer and Master Multi Agent Router
 
 You have received six consolidated directorate briefs and the reconciliation notes from the contradiction audit loop. Reconciled figures override the original briefs.
+Every material claim must carry the tag of its source agent, e.g. [A12] or [A06, A12].
 Compress everything into one highly scannable, executive ready Master Feasibility Blueprint. Be decisive. State the hard truths, tradeoffs and hidden costs explicitly.
 
 Your output MUST use exactly this header structure:

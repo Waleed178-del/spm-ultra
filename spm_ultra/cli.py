@@ -28,6 +28,14 @@ def _parse() -> argparse.Namespace:
                    choices=["low", "medium", "high", "xhigh", "max"])
     p.add_argument("--master-effort", default="high",
                    choices=["low", "medium", "high", "xhigh", "max"])
+    p.add_argument("--mesh-rounds", type=int, default=0,
+                   help="Peer mesh revision rounds: each agent re-reads its upstream peers (+30 calls per round)")
+    p.add_argument("--web", action="store_true",
+                   help="Give specialists the web_search tool and append cited sources")
+    p.add_argument("--agent", type=int, metavar="N",
+                   help="Run only specialist N (1-30) against the idea, skipping intake. For testing")
+    p.add_argument("--write-diagrams", type=Path, nargs="?", const=Path("workflows"), metavar="DIR",
+                   help="Regenerate the workflow charts from the registry and exit")
     p.add_argument("--no-fallback", action="store_true",
                    help="Disable server side refusal fallback")
     p.add_argument("--dry-run", action="store_true", help="Run the full pipeline offline with a mock model")
@@ -51,6 +59,11 @@ def main() -> int:
     if args.list_agents:
         _print_map()
         return 0
+    if args.write_diagrams:
+        from .diagrams import write_all
+        for path in write_all(args.write_diagrams):
+            print(path)
+        return 0
 
     if args.file:
         idea = args.file.read_text()
@@ -65,7 +78,14 @@ def main() -> int:
     llm = MockLLM() if args.dry_run else ClaudeLLM(
         model=args.model, max_concurrency=args.concurrency, use_fallbacks=not args.no_fallback)
     orch = MasterOrchestrator(llm, worker_effort=args.worker_effort,
-                              lead_effort=args.lead_effort, master_effort=args.master_effort)
+                              lead_effort=args.lead_effort, master_effort=args.master_effort,
+                              mesh_rounds=args.mesh_rounds, web_research=args.web)
+    if args.agent is not None:
+        if not 1 <= args.agent <= 30:
+            print("error: --agent must be 1 to 30", file=sys.stderr)
+            return 1
+        print(asyncio.run(orch.run_agent(args.agent, idea)))
+        return 0
     result = asyncio.run(orch.run(idea, args.answers))
 
     if not result.intake.ready:

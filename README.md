@@ -29,6 +29,19 @@ Strategy  Operations  Finance   Risk/Legal  Tech/Arch    GTM
 
 Full definitions live in [`spm_ultra/registry.py`](spm_ultra/registry.py). Run `spm-ultra --list-agents` to print the map.
 
+## Workflow charts
+
+The [`workflows/`](workflows/README.md) folder holds diagrams generated from the code: the command hierarchy, the run lifecycle, the communication protocol with message envelopes and visibility rules, the full agent mesh with its adjacency matrix, the internal flow of each directorate, the audit loop, and one reference card per agent.
+
+## Agent mesh and referencing
+
+Two networks run side by side:
+
+1. **Command hierarchy.** Master to leads to specialists. Decides who does work.
+2. **Information mesh.** Each agent names the peers it must align with (`DEPENDENCIES`). The links are written into every agent prompt. With `--mesh-rounds N`, each agent reads its upstream peers' real output and revises.
+
+Everything is traceable. Agents are tagged `A01` to `A30`. Every blueprint claim cites its source agents, e.g. `[A06, A12]`. Each agent cites its canonical framework references, and with `--web` it also cites live web sources.
+
 ## Lifecycle
 
 ```
@@ -73,6 +86,18 @@ If the intake gate finds the goal, timeline or budget missing, it prints three d
 spm-ultra --file idea.md --answers "Goal: 500 paying clinics. Timeline: 18 months. Budget: 400k USD."
 ```
 
+Test a single agent:
+
+```bash
+spm-ultra --agent 12 "your idea"
+```
+
+Make agents align with each other and cite live web sources:
+
+```bash
+spm-ultra --file idea.md --mesh-rounds 1 --web
+```
+
 Offline smoke test of the whole pipeline (no API calls):
 
 ```bash
@@ -103,11 +128,15 @@ Blueprint schema: Executive Summary & Viability Matrix, Sections I–VI (one per
 | `--worker-effort` | medium | Effort for the 30 specialists |
 | `--lead-effort` | high | Effort for directorate leads and reconciliations |
 | `--master-effort` | high | Effort for audit and final blueprint |
+| `--mesh-rounds` | 0 | Peer revision rounds over the mesh (+30 calls each) |
+| `--web` | off | Give specialists web search and append cited sources |
+| `--agent N` | none | Run only specialist N, for testing |
+| `--write-diagrams` | `workflows/` | Regenerate the charts from the registry |
 | `--no-fallback` | off | Disable server side refusal fallback |
 
 ## Cost and latency
 
-One run is about **40 API calls**: 1 intake, 30 specialists, 6 leads, 1 audit, 0 to 5 reconciliations, 1 master. Specialist calls are parallel, so wall time is roughly four sequential stages, not forty. Token spend scales with idea length and effort; lower `--worker-effort` to `low` for fast screening passes and keep `high` for decisions that matter.
+One run is about **40 API calls** (about 70 with `--mesh-rounds 1`): 1 intake, 30 specialists, 6 leads, 1 audit, 0 to 5 reconciliations, 1 master. Specialist calls are parallel, so wall time is roughly four sequential stages, not forty. Token spend scales with idea length and effort; lower `--worker-effort` to `low` for fast screening passes and keep `high` for decisions that matter.
 
 ## Use without code
 
@@ -125,9 +154,19 @@ print(result.blueprint)
 
 ## Tests
 
+Offline, free. Each of the 30 agents is tested on its definition, mesh links, prompt, isolation, routing, reconciliation and the single agent runner:
+
 ```bash
 pytest
 ```
+
+Live, 30 real API calls, one per agent:
+
+```bash
+SPM_LIVE=1 pytest tests/test_live_agents.py
+```
+
+Full guide: [`docs/HOW_TO.md`](docs/HOW_TO.md).
 
 ## License
 

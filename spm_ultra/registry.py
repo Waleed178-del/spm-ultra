@@ -150,3 +150,97 @@ def directorate_of(agent_id: int) -> Directorate:
         if any(a.id == agent_id for a in d.agents):
             return d
     raise KeyError(agent_id)
+
+
+# --------------------------------------------------------------------------- referencing
+
+# Canonical framework sources each specialist must ground its method in.
+REFERENCES: dict[int, tuple[str, ...]] = {
+    1: ("Learned, Christensen, Andrews & Guth, Business Policy: Text and Cases (1965)",),
+    2: ("Aguilar, Scanning the Business Environment (1967)",),
+    3: ("Porter, How Competitive Forces Shape Strategy, HBR (1979)",
+        "Porter, Competitive Strategy (1980)"),
+    4: ("Kim & Mauborgne, Blue Ocean Strategy (2005)",),
+    5: ("Schwartz, The Art of the Long View (1991)",),
+    6: ("Doran, There's a S.M.A.R.T. Way to Write Management's Goals and Objectives, Management Review (1981)",),
+    7: ("Grove, High Output Management (1983)", "Doerr, Measure What Matters (2018)"),
+    8: ("PMI, Practice Standard for Work Breakdown Structures", "Schwaber & Sutherland, The Scrum Guide (2020)"),
+    9: ("PMI, PMBOK Guide: Resource Management", "Goldratt, Critical Chain (1997)"),
+    10: ("Kotter, Leading Change (1996)", "Hiatt, ADKAR (2006)"),
+    11: ("IAS 16 Property, Plant and Equipment",),
+    12: ("Damodaran, Investment Valuation",),
+    13: ("Horngren et al., Cost Accounting: cost volume profit analysis",),
+    14: ("Osterwalder & Pigneur, Business Model Generation (2010)",
+         "Ramanujam & Tacke, Monetizing Innovation (2016)"),
+    15: ("Brealey, Myers & Allen, Principles of Corporate Finance",),
+    16: ("Klein, Performing a Project Premortem, HBR (2007)",),
+    17: ("ISO 31000:2018 Risk management",),
+    18: ("Regulation (EU) 2016/679 (GDPR)", "ISO/IEC 27001"),
+    19: ("Beyer et al., Site Reliability Engineering (2016)",),
+    20: ("ISO 22301:2019 Business continuity", "NIST SP 800-34 Contingency Planning"),
+    21: ("Ries, The Lean Startup (2011)",),
+    22: ("Brown, The C4 Model for Software Architecture",
+         "Kleppmann, Designing Data-Intensive Applications (2017)"),
+    23: ("Nielsen, 10 Usability Heuristics (1994)", "W3C WCAG 2.2"),
+    24: ("Abbott & Fisher, The Art of Scalability (2009)",),
+    25: ("Kraljic, Purchasing Must Become Supply Management, HBR (1983)",),
+    26: ("Moore, Crossing the Chasm (1991)", "Christensen et al., Competing Against Luck (2016)"),
+    27: ("Weinberg & Mares, Traction (2015)",),
+    28: ("Ries & Trout, Positioning (1981)", "Dunford, Obviously Awesome (2019)"),
+    29: ("Skok, SaaS Metrics 2.0",),
+    30: ("Eyal, Hooked (2014)", "Reichheld, The One Number You Need to Grow, HBR (2003)"),
+}
+
+# --------------------------------------------------------------------------- mesh
+
+# DEPENDENCIES[a] = upstream agents whose output agent `a` must read and align with.
+# This is the logical mesh. Edges flow upstream -> a.
+DEPENDENCIES: dict[int, tuple[int, ...]] = {
+    1: (2, 3, 4, 5),
+    2: (5, 18),
+    3: (4, 25, 26),
+    4: (3, 21, 28),
+    5: (2, 24),
+    6: (7, 13, 15),
+    7: (6, 29, 30),
+    8: (9, 21, 22),
+    9: (8, 12),
+    10: (9, 23),
+    11: (22, 24, 25),
+    12: (9, 22, 25, 27),
+    13: (11, 12, 14, 29),
+    14: (4, 26, 28),
+    15: (11, 12, 13, 14),
+    16: (1, 13, 17, 19, 29),
+    17: (10, 16, 18, 19, 20),
+    18: (2, 21, 22),
+    19: (9, 22, 25),
+    20: (12, 19, 22),
+    21: (4, 8, 18, 26),
+    22: (21, 24, 25),
+    23: (21, 26, 30),
+    24: (11, 12, 22),
+    25: (12, 19, 22),
+    26: (3, 4),
+    27: (26, 28, 29),
+    28: (3, 4, 26),
+    29: (13, 14, 27, 30),
+    30: (23, 26, 29),
+}
+
+
+def upstream(agent_id: int) -> tuple[int, ...]:
+    return DEPENDENCIES[agent_id]
+
+
+def downstream(agent_id: int) -> tuple[int, ...]:
+    return tuple(a for a, deps in DEPENDENCIES.items() if agent_id in deps)
+
+
+def mesh_edges() -> list[tuple[int, int]]:
+    """All directed edges (producer, consumer)."""
+    return [(src, dst) for dst, deps in sorted(DEPENDENCIES.items()) for src in deps]
+
+
+def tag(agent_id: int) -> str:
+    return f"A{agent_id:02d}"
