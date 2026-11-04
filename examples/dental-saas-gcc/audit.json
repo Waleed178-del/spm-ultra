@@ -1,0 +1,67 @@
+{
+  "conflicts": [
+    {
+      "check": "Operational Roadmap vs OpEx Runway",
+      "agent_ids": [6, 9, 12, 15, 20],
+      "in_conflict": true,
+      "severity": "high",
+      "description": "D2 [A09] models baseline burn ~24k USD/month (10.4 months runway) and adds a support specialist by M5 plus a Riyadh seller by M6 (40-57k USD), cutting runway to ~8 months. D3 [A12] models a higher bottom-up burn of 24.5-27.5k (avg ~26k, 8.3 months zero-revenue runway) and says headcount must stay at 3 plus a part-time contractor until MRR covers hires. Both cannot hold: the hires D2/D6 need for the 150-clinic Base plan are not in D3's burn, and D3's runway already ends ~Jul 2027. Fundraise timing also diverges: D4 [A20] says start M3-4, D3 [A12/A15] says start M6, close M9."
+    },
+    {
+      "check": "Scale parameters vs CapEx estimate",
+      "agent_ids": [11, 24],
+      "in_conflict": true,
+      "severity": "medium",
+      "description": "[A24]/D5 design one in-country cell per country (UAE + KSA), with infra at 400-800 USD/month at 300 clinics, which is consistent with cloud-only CapEx. But [A11] assumes a single UAE entity serving KSA cross-border with no second region in the base case, and excludes the 15-30k USD KSA entity/in-Kingdom hosting cost. The infra opex is small. The CapEx base case omits a residency-driven KSA cell and entity, which D4 [A18] and D5 [A22] treat as probably mandatory."
+    },
+    {
+      "check": "Tech stack vendor choices vs OpEx burn",
+      "agent_ids": [12, 22, 25],
+      "in_conflict": true,
+      "severity": "high",
+      "description": "[A12] puts messaging COGS at ~24 USD/clinic/month (400 appts x 2 msgs x 0.03 USD), ~30-36% of price, and total variable cost at ~28.5 USD. [A25] puts it at 9-18 USD/clinic/month (600 appts x 1 reminder x 0.015-0.03 USD loaded BSP rate). The 2x gap moves contribution from ~50 to ~62-70 USD/clinic and moves break-even by hundreds of clinics. Also [A12]'s burn excludes [A18]'s 25-55k USD year-1 compliance cost and dual-cell infra."
+    },
+    {
+      "check": "CAC/LTV assumptions vs break-even volume",
+      "agent_ids": [13, 16, 29],
+      "in_conflict": true,
+      "severity": "critical",
+      "description": "[A29] reports contribution ~62 USD, churn 2.5%, LTV ~2,480 USD, LTV:CAC ~4x, which reads as healthy. [A13] reports contribution ~50 USD, churn 3%, LTV ~1,670 USD, and company operating break-even ~520 clinics at 79 USD flat. That is above the 300 GIVEN target and ~3x the realistic 150 base case. [A16] cites break-even at ~300-340 clinics. Healthy per-unit LTV:CAC and a break-even far beyond reachable volume give opposite go/no-go signals."
+    },
+    {
+      "check": "Compliance requirements vs MVP scope",
+      "agent_ids": [18, 21],
+      "in_conflict": true,
+      "severity": "high",
+      "description": "[A18] requires in the MVP: consent capture and logs, audit logs, coded optional visit reason with no clinical free text, 24-month retention, in-country hosting, a 72h breach runbook and WhatsApp opt-in for health reminders. [A21]'s MVP scope (calendar, minimal patient record, CSV import, WhatsApp reminders, billing) contains no consent capture, audit logging or breach process (verified: no match in agent_21.md). The 30-36 eng-week scope is already at the limit of the week 10-12 pilot date."
+    },
+    {
+      "check": "12-month clinic volume base case",
+      "agent_ids": [6, 9, 16, 27],
+      "in_conflict": true,
+      "severity": "medium",
+      "description": "[A06]/[A09] and [A16] set the plan of record at 150 clinics (range 110-180). [A27] sets the base case at 180-230 net clinics with one commissioned rep, a distributor partner, referrals and AEEDC. The difference is whether the added rep and distributor count as base or stretch, and it drives revenue, hiring and fundraise sizing."
+    },
+    {
+      "check": "KSA entry gate and timing",
+      "agent_ids": [1, 18, 22, 26],
+      "in_conflict": true,
+      "severity": "medium",
+      "description": "There are four different KSA triggers: [A01] after 50-75 paying clinics; [A16]/[A18] at 60 UAE clinics plus a KSA stack plus a DPA; [A26] at 100+ UAE clinics; [A22] KSA cell deployed at M4-5 or on the first KSA contract. At the modelled pace, M4-5 corresponds to ~20-40 clinics, which breaks every clinic-count gate."
+    },
+    {
+      "check": "Monthly churn assumption",
+      "agent_ids": [6, 13, 17, 29],
+      "in_conflict": false,
+      "severity": "low",
+      "description": "Churn ranges from 2% [A06] to 2.5% [A29], 3% [A13] and 3-5% [A17]. These are overlapping ASSUMED ranges, not a contradiction. The blueprint uses 2.5-3% as base and 4%+ as a trip-wire. Each source's figure stays inside its own model."
+    },
+    {
+      "check": "MVP / pilot date",
+      "agent_ids": [8, 21],
+      "in_conflict": false,
+      "severity": "low",
+      "description": "[A08] has the pilot in Jan 2027 and paid launch in Feb 2027 (~720 h). [A21] has the pilot at week 10-12 (mid/late Jan 2027) with 30-36 eng-weeks. Consistent. This is valid only if the compliance scope addition in the MVP check is absorbed without slipping the date."
+    }
+  ]
+}

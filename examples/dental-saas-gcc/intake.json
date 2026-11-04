@@ -1,0 +1,9 @@
+{
+  "ready": true,
+  "industry_vector": "Vertical B2B SaaS / healthtech: appointment scheduling software for independent dental clinics, GCC (UAE + Saudi Arabia)",
+  "primary_goal": "300 paying dental clinics within 12 months (GIVEN)",
+  "timeline": "12 months from launch (GIVEN)",
+  "budget": "250,000 USD seed (GIVEN)",
+  "diagnostic_questions": [],
+  "context_brief": "Idea: a B2B SaaS appointment scheduling product for independent (non-chain) dental clinics in the UAE and Saudi Arabia.\nGoal (GIVEN): 300 paying clinics within 12 months.\nBudget (GIVEN): 250,000 USD seed capital.\nTeam (GIVEN): 2 engineers and 1 founder who does sales. No other staff stated.\nPricing idea (GIVEN): 79 USD per clinic per month (implies ~23,700 USD MRR / ~284,400 USD ARR at 300 clinics).\nNot stated: product stage (assumed pre-product or early MVP), existing customers or pilots, founder's dental-industry network, feature set beyond scheduling, Arabic/English localisation, integration with existing practice-management systems, legal entity location, payment collection method, any revenue already earned.\nTimeline start date: assume the 12 months start now (Nov 2026).\nWeb research: not performed; all market figures must be labelled ASSUMED."
+}

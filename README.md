@@ -4,6 +4,8 @@
 
 Built on the Claude API (`claude-opus-5-5` by default).
 
+**See a real run:** [`examples/dental-saas-gcc/blueprint.md`](examples/dental-saas-gcc/blueprint.md)
+
 ## Install in Claude Code
 
 SPM Ultra ships as a Claude Code plugin with one skill. Inside Claude Code it uses Claude Code's own subagents, so **no API key and no Python are needed**.
