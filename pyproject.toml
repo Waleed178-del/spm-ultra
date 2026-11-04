@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spm-ultra"
+version = "0.1.0"
+description = "SPM Ultra: hierarchical 30 agent strategic planning orchestrator built on Claude"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["anthropic>=2.4.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+spm-ultra = "spm_ultra.cli:main"
+
+[tool.setuptools]
+packages = ["spm_ultra"]
