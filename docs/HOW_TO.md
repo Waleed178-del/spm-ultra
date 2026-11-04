@@ -91,9 +91,28 @@ One agent only:
 SPM_LIVE=1 pytest tests/test_live_agents.py -k "12"
 ```
 
-## 8. Customize
+## 8. Use it as a Claude Code skill
 
-| Change | Edit | Then |
+Install it (see the README), then in Claude Code:
+
+```
+/spm-ultra:spm-ultra --mode standard --web <your idea or a path to idea.md>
+```
+
+No API key needed: Claude Code's own subagents act as the agents, using your Claude Code plan's usage. Rough scale: quick runs in one context, standard starts 6 subagents, and full starts 36 (66 with `--mesh`). Start with `quick` or `standard`.
+
+After changing anything in the registry or prompts, regenerate the skill and check it:
+
+```bash
+spm-ultra --write-skill && pytest
+```
+```bash
+claude plugin validate . --strict
+```
+
+## 9. Customize
+
+| Change | Edit | Then (also run `spm-ultra --write-skill`) |
 |---|---|---|
 | An agent's mandate | `DIRECTORATES` in `spm_ultra/registry.py` | `pytest` |
 | An agent's references | `REFERENCES` | `spm-ultra --write-diagrams` |
@@ -103,7 +122,7 @@ SPM_LIVE=1 pytest tests/test_live_agents.py -k "12"
 
 The tests enforce the mesh rules: no self loops, no dead ends, every agent links to another directorate, and charts match the code.
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 | Symptom | Fix |
 |---|---|

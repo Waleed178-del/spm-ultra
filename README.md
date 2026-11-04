@@ -4,6 +4,69 @@
 
 Built on the Claude API (`claude-opus-5-5` by default).
 
+## Install in Claude Code
+
+SPM Ultra ships as a Claude Code plugin with one skill. Inside Claude Code it uses Claude Code's own subagents, so **no API key and no Python are needed**.
+
+**Option A: plugin (recommended).** In Claude Code:
+
+```
+/plugin install spm-ultra --marketplace Waleed178-del/spm-ultra
+```
+
+On Claude Code older than 2.1.275, use two steps:
+
+```
+/plugin marketplace add Waleed178-del/spm-ultra
+```
+```
+/plugin install spm-ultra@spm-ultra
+```
+
+Or from a terminal:
+
+```bash
+claude plugin marketplace add Waleed178-del/spm-ultra
+```
+```bash
+claude plugin install spm-ultra@spm-ultra
+```
+
+**Option B: skill folder only.**
+
+```bash
+git clone https://github.com/Waleed178-del/spm-ultra.git
+```
+```bash
+mkdir -p ~/.claude/skills && cp -r spm-ultra/skills/spm-ultra ~/.claude/skills/
+```
+
+The repository is private, so installing needs GitHub access on that machine (`gh auth login` or an SSH key). Make the repo public to let anyone install it.
+
+### Use in Claude Code
+
+Ask in plain language ("stress-test this idea with SPM Ultra: ...") or call it directly. With the plugin it is `/spm-ultra:spm-ultra`; with the skill folder it is `/spm-ultra`.
+
+```
+/spm-ultra:spm-ultra Launch a scheduling SaaS for dental clinics in the GCC. Goal 300 clinics in 12 months. Budget 250k USD.
+```
+
+| Flag | Subagents | Use for |
+|---|---|---|
+| `--mode quick` | 0 | Fast, cheap first look. One context plays every agent |
+| `--mode standard` (default) | 6 | One subagent per directorate, running in parallel |
+| `--mode full` | 36 | One subagent per specialist, then 6 leads. Most independent |
+| `--mode full --mesh` | 66 | Plus a revision round where each agent reads its upstream peers |
+| `--web` | | Agents use WebSearch and WebFetch and cite URLs |
+
+Each run writes `spm-runs/<timestamp>/` in your project, with `blueprint.md`, `intake.json`, `agents/`, `briefs/`, `audit.json` and `reconciliations.md`.
+
+The skill's instructions are in [`skills/spm-ultra/SKILL.md`](skills/spm-ultra/SKILL.md). Its 42 reference files are generated from the same registry as the Python CLI by `spm-ultra --write-skill`, so the two never drift.
+
+## Python CLI (Claude API)
+
+The same pipeline also runs as a standalone Python program against the Claude API. That is for automation, CI, or use outside Claude Code. The rest of this README covers that path.
+
 ## Topology
 
 A flat network of 30 agents causes token bottlenecks and conflicting directives. SPM Ultra uses a **Hierarchical Cluster Topography**: 30 specialists grouped into 6 directorates, each with a routing lead that reports to one Master Orchestrator.
@@ -132,6 +195,7 @@ Blueprint schema: Executive Summary & Viability Matrix, Sections I–VI (one per
 | `--web` | off | Give specialists web search and append cited sources |
 | `--agent N` | none | Run only specialist N, for testing |
 | `--write-diagrams` | `workflows/` | Regenerate the charts from the registry |
+| `--write-skill` | `skills/spm-ultra/` | Regenerate the skill reference files |
 | `--no-fallback` | off | Disable server side refusal fallback |
 
 ## Cost and latency

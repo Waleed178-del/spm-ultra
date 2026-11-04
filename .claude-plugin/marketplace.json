@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "spm-ultra",
+  "description": "SPM Ultra: hierarchical 30 agent strategic planning and feasibility analysis for Claude Code.",
+  "owner": {
+    "name": "Waleed Halaoua",
+    "email": "waleed.halaoua.dbxv@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "spm-ultra",
+      "source": "./",
+      "description": "SPM Ultra strategic planning manager: 30 specialist agents in 6 directorates stress-test an idea and produce a Master Feasibility Blueprint.",
+      "version": "0.2.0"
+    }
+  ]
+}

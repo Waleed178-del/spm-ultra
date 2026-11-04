@@ -1,0 +1,15 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "spm-ultra",
+  "version": "0.2.0",
+  "description": "SPM Ultra strategic planning manager: 30 specialist agents in 6 directorates stress-test an idea and produce a Master Feasibility Blueprint.",
+  "author": {
+    "name": "Waleed Halaoua",
+    "email": "waleed.halaoua.dbxv@gmail.com"
+  },
+  "homepage": "https://github.com/Waleed178-del/spm-ultra",
+  "repository": "https://github.com/Waleed178-del/spm-ultra",
+  "license": "MIT",
+  "keywords": ["strategy", "planning", "feasibility", "multi-agent", "business", "swot", "okr", "gtm"],
+  "skills": ["./skills/spm-ultra"]
+}

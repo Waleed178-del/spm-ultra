@@ -36,6 +36,8 @@ def _parse() -> argparse.Namespace:
                    help="Run only specialist N (1-30) against the idea, skipping intake. For testing")
     p.add_argument("--write-diagrams", type=Path, nargs="?", const=Path("workflows"), metavar="DIR",
                    help="Regenerate the workflow charts from the registry and exit")
+    p.add_argument("--write-skill", type=Path, nargs="?", const=Path("skills/spm-ultra"),
+                   metavar="DIR", help="Regenerate the Claude Code skill references and exit")
     p.add_argument("--no-fallback", action="store_true",
                    help="Disable server side refusal fallback")
     p.add_argument("--dry-run", action="store_true", help="Run the full pipeline offline with a mock model")
@@ -58,6 +60,10 @@ def main() -> int:
                         format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     if args.list_agents:
         _print_map()
+        return 0
+    if args.write_skill:
+        from .skillgen import write_all as write_skill
+        print(f"{len(write_skill(args.write_skill))} files written to {args.write_skill}/references")
         return 0
     if args.write_diagrams:
         from .diagrams import write_all

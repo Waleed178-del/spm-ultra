@@ -44,12 +44,16 @@ INTAKE_SCHEMA = {
 }
 
 
-def agent_system(agent: Agent, directorate: Directorate, web: bool = False) -> str:
+WEB_RULE = ("You have a web search tool. Use it for current market data, prices and regulation. "
+            "Cite every external figure with its source URL.")
+NO_WEB_RULE = ("You have no live data access. Mark any market figure as ASSUMED and say what source "
+               "would confirm it.")
+
+
+def agent_system(agent: Agent, directorate: Directorate, web: bool = False,
+                 data_rule: str | None = None) -> str:
     refs = "\n".join(f"- {r}" for r in REFERENCES[agent.id])
-    web_rule = ("You have a web_search tool. Use it for current market data, prices and regulation. "
-                "Cite every external figure with its source.") if web else (
-                "You have no live data access. Mark any market figure as ASSUMED and say what source "
-                "would confirm it.")
+    web_rule = data_rule or (WEB_RULE if web else NO_WEB_RULE)
     return f"""\
 You are Agent {agent.id} [{tag(agent.id)}]: {agent.name}, a specialist consultant inside Directorate {directorate.id} ({directorate.name}) of the SPM Ultra strategic planning cluster.
 

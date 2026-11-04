@@ -74,7 +74,7 @@ def test_agent_prompt_contents(aid):
                     "Cross-Dependencies", "References"):
         assert f"**{section}**" in p
     assert "no live data access" in p
-    assert "web_search tool" in agent_system(a, d, web=True)
+    assert "web search tool" in agent_system(a, d, web=True)
 
 
 @pytest.mark.parametrize("aid", AGENT_IDS)
@@ -144,4 +144,4 @@ def test_web_flag_reaches_agent(aid):
     llm = MockLLM()
     asyncio.run(MasterOrchestrator(llm, web_research=True).run_agent(aid, CONTEXT))
     assert llm.calls[0].web is True
-    assert "web_search tool" in llm.calls[0].system
+    assert "web search tool" in llm.calls[0].system
